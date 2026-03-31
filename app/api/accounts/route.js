@@ -10,11 +10,13 @@ export async function GET(request) {
   }
 
   const VPS_URL = process.env.VPS_API_URL;
+  const VPS_KEY = process.env.VPS_API_KEY || '';
 
   // OPTION A : Fetch depuis le serveur Node.js sur le VPS
   if (VPS_URL) {
     try {
-      const response = await fetch(`${VPS_URL}/api/accounts`, {
+      const vpsUrl = VPS_KEY ? `${VPS_URL}/api/accounts?key=${VPS_KEY}` : `${VPS_URL}/api/accounts`;
+      const response = await fetch(vpsUrl, {
         cache: 'no-store',
         signal: AbortSignal.timeout(8000),
       });
