@@ -198,6 +198,7 @@ const AccountCard = ({ account, isExpanded, onToggle, showBal }) => {
           </div>
 
           {/* Equity Curve */}
+          {account.equityCurve && account.equityCurve.length > 0 && (
           <div>
             <h4 className="text-gray-400 font-semibold text-sm mb-2 flex items-center gap-1.5">
               <TrendingUp size={14} className="text-emerald-400" /> Equity 30j
@@ -218,6 +219,7 @@ const AccountCard = ({ account, isExpanded, onToggle, showBal }) => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          )}
 
           {/* Margin stats */}
           <div className="grid grid-cols-3 gap-2">
@@ -231,7 +233,7 @@ const AccountCard = ({ account, isExpanded, onToggle, showBal }) => {
             </div>
             <div className="bg-gray-800/50 rounded-lg p-2 text-center">
               <div className="text-[10px] text-gray-500">Niv. marge</div>
-              <div className={`text-xs font-semibold ${account.marginLevel > 500 ? 'text-emerald-400' : account.marginLevel > 200 ? 'text-amber-400' : 'text-red-400'}`}>{account.marginLevel.toFixed(0)}%</div>
+              <div className={`text-xs font-semibold ${account.marginLevel > 500 ? 'text-emerald-400' : account.marginLevel > 200 ? 'text-amber-400' : 'text-red-400'}`}>{(account.marginLevel || 0).toFixed(0)}%</div>
             </div>
           </div>
         </div>
@@ -259,7 +261,23 @@ export default function Dashboard() {
       if (res.ok) {
         const json = await res.json();
         if (json.accounts && json.accounts.length > 0) {
-          setAccounts(json.accounts);
+          // Normalise les champs VPS → format attendu par le frontend
+          const normalized = json.accounts.map((a) => ({
+            ...a,
+            id: a.id || a.accountId || String(a.accountId),
+            name: a.name || a.alias || `Account ${a.accountId}`,
+            login: a.login || String(a.accountId),
+            positions: a.positions || [],
+            equityCurve: a.equityCurve || [],
+            drawdown: a.drawdown || 0,
+            dailyPL: a.dailyPL || 0,
+            monthlyPL: a.monthlyPL || 0,
+            profitability: a.profitability || 0,
+            totalProfit: a.totalProfit || 0,
+            initialDeposit: a.initialDeposit || a.balance || 0,
+            marginLevel: a.marginLevel || 0,
+          }));
+          setAccounts(normalized);
           setApiConnected(true);
           setLastRefresh(new Date());
           setLoading(false);
