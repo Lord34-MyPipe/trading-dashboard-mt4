@@ -5,17 +5,17 @@
 //+------------------------------------------------------------------+
 #property copyright "Julien Barange - Trading Dashboard"
 #property link      ""
-#property version   "2.0"
+#property version   "2.1"
 #property strict
 
 // ============================================================
 // PARAMETRES
 // ============================================================
-extern int    ExportIntervalSeconds = 10;     // Intervalle export (secondes)
-extern string AccountAlias         = "";      // Nom du compte (ex: "RoboForex #1")
-extern string SharedExportPath     = "C:\\TradingDashboard\\data\\"; // Dossier partagé
-extern bool   UseSharedPath        = true;    // Utiliser le dossier partagé
-extern bool   DebugMode            = false;   // Logs debug
+extern int    ExportIntervalSeconds = 10;
+extern string AccountAlias         = "";
+extern string SharedExportPath     = "C:\\TradingDashboard\\data\\";
+extern bool   UseSharedPath        = true;
+extern bool   DebugMode            = false;
 
 datetime lastExport = 0;
 string exportFilename = "";
@@ -28,12 +28,10 @@ int OnInit()
 
    exportFilename = "dashboard_" + IntegerToString(AccountNumber()) + ".json";
 
-   Print("=== AccountExporter EA v2.0 ===");
+   Print("=== AccountExporter EA v2.1 ===");
    Print("Compte: ", AccountAlias, " (#", AccountNumber(), ")");
    Print("Export: toutes les ", ExportIntervalSeconds, "s");
-   Print("Fichier: ", exportFilename);
 
-   // Premier export immédiat
    ExportAccountData();
    EventSetTimer(ExportIntervalSeconds);
    return(INIT_SUCCEEDED);
@@ -43,21 +41,11 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    EventKillTimer();
-   Print("AccountExporter EA arrêté pour ", AccountAlias);
 }
 
 //+------------------------------------------------------------------+
-void OnTimer()
-{
-   ExportAccountData();
-}
-
-//+------------------------------------------------------------------+
-void OnTick()
-{
-   if(TimeCurrent() - lastExport >= ExportIntervalSeconds)
-      ExportAccountData();
-}
+void OnTimer() { ExportAccountData(); }
+void OnTick()  { if(TimeCurrent() - lastExport >= ExportIntervalSeconds) ExportAccountData(); }
 
 //+------------------------------------------------------------------+
 string EscapeJSON(string s)
@@ -80,14 +68,10 @@ void ExportAccountData()
       string fullPath = SharedExportPath + exportFilename;
       handle = FileOpen(fullPath, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_COMMON);
       if(handle == INVALID_HANDLE)
-      {
          handle = FileOpen(exportFilename, FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_COMMON);
-      }
    }
    else
-   {
       handle = FileOpen(exportFilename, FILE_WRITE|FILE_TXT|FILE_ANSI);
-   }
 
    if(handle == INVALID_HANDLE)
    {
@@ -105,29 +89,29 @@ void ExportAccountData()
    double marginLvl  = margin > 0 ? (equity / margin) * 100.0 : 0;
    double floatingPL = equity - balance;
 
-   // Profits ENCAISSES uniquement (trades fermés, sans floating)
-   double dailyProfit    = CalculateRealizedPLFromDate(GetStartOfDay());
-   double monthlyProfit  = CalculateRealizedPLFromDate(GetStartOfMonth());
-   double yearlyProfit   = CalculateRealizedPLFromDate(GetStartOfYear());
+   // ============================================================
+   // PROFITS ENCAISSES (trades fermés uniquement)
+   // ============================================================
+   double dailyProfit   = CalculateRealizedPL(GetStartOfDay());
+   double monthlyProfit = CalculateRealizedPL(GetStartOfMonth());
+   double yearlyProfit  = CalculateRealizedPL(GetStartOfYear2026());
 
-   // Drawdown en cours
-   double maxBalance = GetMaxHistoricalBalance();
-   double drawdown   = maxBalance > 0 ? ((maxBalance - equity) / maxBalance) * 100.0 : 0;
-   if(drawdown < 0) drawdown = 0;
-   double drawdownAmount = maxBalance > 0 ? maxBalance - equity : 0;
-   if(drawdownAmount < 0) drawdownAmount = 0;
+   // ============================================================
+   // FLOATING = encours des positions ouvertes (positif ou négatif)
+   // floatingPct = floating / balance * 100
+   // ============================================================
+   double floatingPct = balance > 0 ? (floatingPL / balance) * 100.0 : 0;
 
-   double initialDeposit = GetInitialDeposit();
+   // ============================================================
+   // RENDEMENTS EN %
+   // ============================================================
+   double balStartDay   = balance - dailyProfit;
+   double balStartMonth = balance - monthlyProfit;
+   double balStartYear  = balance - yearlyProfit;
 
-   // Rendements en %
-   // Balance début de journée = balance actuelle - profit encaissé aujourd'hui
-   double balanceStartDay   = balance - dailyProfit;
-   double balanceStartMonth = balance - monthlyProfit;
-   double balanceStartYear  = balance - yearlyProfit;
-
-   double dailyReturnPct   = balanceStartDay > 0   ? (dailyProfit / balanceStartDay) * 100.0 : 0;
-   double monthlyReturnPct = balanceStartMonth > 0  ? (monthlyProfit / balanceStartMonth) * 100.0 : 0;
-   double yearlyReturnPct  = balanceStartYear > 0   ? (yearlyProfit / balanceStartYear) * 100.0 : 0;
+   double dailyReturnPct   = balStartDay > 0   ? (dailyProfit / balStartDay) * 100.0 : 0;
+   double monthlyReturnPct = balStartMonth > 0  ? (monthlyProfit / balStartMonth) * 100.0 : 0;
+   double yearlyReturnPct  = balStartYear > 0   ? (yearlyProfit / balStartYear) * 100.0 : 0;
 
    // ============================================================
    // JSON
@@ -151,9 +135,7 @@ void ExportAccountData()
    json += "  \"dailyReturnPct\": " + DoubleToString(dailyReturnPct, 2) + ",\n";
    json += "  \"monthlyReturnPct\": " + DoubleToString(monthlyReturnPct, 2) + ",\n";
    json += "  \"yearlyReturnPct\": " + DoubleToString(yearlyReturnPct, 2) + ",\n";
-   json += "  \"drawdown\": " + DoubleToString(drawdown, 2) + ",\n";
-   json += "  \"drawdownAmount\": " + DoubleToString(drawdownAmount, 2) + ",\n";
-   json += "  \"initialDeposit\": " + DoubleToString(initialDeposit, 2) + ",\n";
+   json += "  \"floatingPct\": " + DoubleToString(floatingPct, 2) + ",\n";
    json += "  \"lastUpdate\": \"" + TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + "\",\n";
    json += "  \"serverTime\": \"" + TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + "\",\n";
    json += "  \"localTime\": \"" + TimeToString(TimeLocal(), TIME_DATE|TIME_SECONDS) + "\",\n";
@@ -253,32 +235,33 @@ void ExportAccountData()
 
    FileWriteString(handle, json);
    FileClose(handle);
-
    lastExport = TimeCurrent();
 
    if(DebugMode)
-      Print("Export OK: ", AccountAlias, " | Bal: ", DoubleToString(balance, 2),
-            " | Eq: ", DoubleToString(equity, 2),
-            " | DD: ", DoubleToString(drawdown, 1), "%",
+      Print("Export OK: ", AccountAlias,
+            " | Bal: ", DoubleToString(balance, 2),
+            " | Float: ", DoubleToString(floatingPL, 2),
+            " | Float: ", DoubleToString(floatingPct, 1), "%",
             " | Jour: ", DoubleToString(dailyProfit, 2),
             " | Mois: ", DoubleToString(monthlyProfit, 2),
             " | An: ", DoubleToString(yearlyProfit, 2));
 }
 
 //+------------------------------------------------------------------+
-// PROFIT ENCAISSE uniquement (trades fermés, SANS floating)
+// PROFIT ENCAISSE (trades fermés uniquement, SANS floating)
+// Parcourt TOUT l'historique sans break pour ne rien rater
 //+------------------------------------------------------------------+
-double CalculateRealizedPLFromDate(datetime fromDate)
+double CalculateRealizedPL(datetime fromDate)
 {
    double pl = 0;
-
    int total = OrdersHistoryTotal();
-   for(int i = total - 1; i >= 0; i--)
+
+   for(int i = 0; i < total; i++)
    {
       if(!OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
-      if(OrderCloseTime() < fromDate) break;
       if(OrderType() > OP_SELL) continue;
-      pl += OrderProfit() + OrderSwap() + OrderCommission();
+      if(OrderCloseTime() >= fromDate)
+         pl += OrderProfit() + OrderSwap() + OrderCommission();
    }
 
    return pl;
@@ -300,51 +283,10 @@ datetime GetStartOfMonth()
 }
 
 //+------------------------------------------------------------------+
-datetime GetStartOfYear()
-{
-   MqlDateTime dt;
-   TimeCurrent(dt);
-   dt.mon = 1; dt.day = 1; dt.hour = 0; dt.min = 0; dt.sec = 0;
-   return StructToTime(dt);
-}
-
+// Toujours depuis le 1er Janvier 2026
 //+------------------------------------------------------------------+
-double GetMaxHistoricalBalance()
+datetime GetStartOfYear2026()
 {
-   double maxBal = AccountBalance();
-   int total = OrdersHistoryTotal();
-   double runningBal = AccountBalance();
-
-   for(int i = total - 1; i >= 0; i--)
-   {
-      if(!OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
-      if(OrderType() > OP_SELL) continue;
-      runningBal -= (OrderProfit() + OrderSwap() + OrderCommission());
-   }
-
-   double bal = runningBal;
-   maxBal = bal;
-   for(int i = 0; i < total; i++)
-   {
-      if(!OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
-      if(OrderType() > OP_SELL) continue;
-      bal += OrderProfit() + OrderSwap() + OrderCommission();
-      if(bal > maxBal) maxBal = bal;
-   }
-
-   return maxBal;
-}
-
-//+------------------------------------------------------------------+
-double GetInitialDeposit()
-{
-   int total = OrdersHistoryTotal();
-   for(int i = 0; i < total; i++)
-   {
-      if(!OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
-      if(OrderType() == 6 && OrderProfit() > 0)
-         return OrderProfit();
-   }
-   return AccountBalance();
+   return StringToTime("2026.01.01 00:00:00");
 }
 //+------------------------------------------------------------------+

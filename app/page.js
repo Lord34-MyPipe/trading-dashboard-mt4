@@ -111,14 +111,9 @@ export default function Dashboard() {
     const totalMonthlyProfit = accounts.reduce((s, a) => s + toEUR(getMonthly(a), a.currency), 0);
     const totalYearlyProfit = accounts.reduce((s, a) => s + toEUR(getYearly(a), a.currency), 0);
 
-    // DD global
-    const totalDDeur = accounts.reduce((s, a) => {
-      if (a.drawdownAmount > 0) return s + toEUR(a.drawdownAmount, a.currency);
-      const eqEUR = toEUR(a.equity, a.currency);
-      return s + (a.drawdown > 0 ? eqEUR * (a.drawdown / 100) / (1 - a.drawdown / 100) : 0);
-    }, 0);
-    const peakEquity = totalEquity + totalDDeur;
-    const globalDDpct = peakEquity > 0 ? (totalDDeur / peakEquity) * 100 : 0;
+    // Floating global (encours positions ouvertes)
+    const totalFloating = accounts.reduce((s, a) => s + toEUR(a.floatingPL || 0, a.currency), 0);
+    const globalFloatingPct = totalBalance > 0 ? (totalFloating / totalBalance) * 100 : 0;
 
     // Rendements globaux en %
     const startDay = totalBalance - totalDailyProfit;
@@ -128,7 +123,7 @@ export default function Dashboard() {
     const monthlyReturnPct = startMonth > 0 ? (totalMonthlyProfit / startMonth) * 100 : 0;
     const yearlyReturnPct = startYear > 0 ? (totalYearlyProfit / startYear) * 100 : 0;
 
-    return { totalBalance, totalEquity, totalDailyProfit, totalMonthlyProfit, totalYearlyProfit, globalDDpct, totalDDeur, dailyReturnPct, monthlyReturnPct, yearlyReturnPct };
+    return { totalBalance, totalEquity, totalFloating, globalFloatingPct, totalDailyProfit, totalMonthlyProfit, totalYearlyProfit, dailyReturnPct, monthlyReturnPct, yearlyReturnPct };
   }, [accounts]);
 
   const mask = (v) => showBal ? v : '•••••';
@@ -181,10 +176,10 @@ export default function Dashboard() {
                 <div className="text-xs text-blue-500 font-medium mb-1">Balance Totale</div>
                 <div className="text-xl font-bold text-blue-900">{mask(fmtMoney(global.totalBalance))}</div>
               </div>
-              <div className={`bg-white border rounded-xl p-3 ${global.globalDDpct > 5 ? 'border-red-300' : 'border-blue-200'}`}>
-                <div className="text-xs text-blue-500 font-medium mb-1">Drawdown</div>
-                <div className={`text-xl font-bold ${global.globalDDpct > 5 ? 'text-red-500' : 'text-blue-900'}`}>{mask(fmtPct(-global.globalDDpct))}</div>
-                <div className={`text-xs mt-0.5 ${global.totalDDeur > 0 ? 'text-red-400' : 'text-gray-400'}`}>{mask(fmtMoney(-global.totalDDeur))}</div>
+              <div className={`bg-white border rounded-xl p-3 ${global.totalFloating >= 0 ? 'border-green-200' : 'border-red-300'}`}>
+                <div className="text-xs text-blue-500 font-medium mb-1">Floating</div>
+                <div className={`text-xl font-bold ${plColor(global.totalFloating)}`}>{mask(fmtMoney(global.totalFloating))}</div>
+                <div className={`text-xs mt-0.5 ${plColor(global.globalFloatingPct)}`}>{mask(fmtPct(global.globalFloatingPct))}</div>
               </div>
             </div>
 
@@ -219,10 +214,8 @@ export default function Dashboard() {
             const daily = getDaily(acc);
             const monthly = getMonthly(acc);
             const yearly = getYearly(acc);
-            // DD en devise native
-            const ddAmount = acc.drawdownAmount > 0
-              ? acc.drawdownAmount
-              : acc.equity * (acc.drawdown / 100) / Math.max(1 - acc.drawdown / 100, 0.001);
+            const floating = acc.floatingPL || 0;
+            const floatingPct = acc.floatingPct || (acc.balance > 0 ? (floating / acc.balance) * 100 : 0);
             const isOpen = expanded[acc.id];
 
             return (
@@ -238,10 +231,6 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${acc.floatingPL >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
-                        {acc.floatingPL >= 0 ? <TrendingUp size={10} className="inline mr-0.5" /> : <TrendingDown size={10} className="inline mr-0.5" />}
-                        {fmtMoney(acc.floatingPL, cur)}
-                      </span>
                       {isOpen ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                     </div>
                   </div>
@@ -252,10 +241,10 @@ export default function Dashboard() {
                       <div className="text-[10px] text-blue-500 font-medium">Balance</div>
                       <div className="text-base font-bold text-blue-900">{mask(fmtMoney(acc.balance, cur))}</div>
                     </div>
-                    <div className={`border rounded-lg p-2 ${acc.drawdown > 5 ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-100'}`}>
-                      <div className="text-[10px] text-blue-500 font-medium">Drawdown</div>
-                      <div className={`text-base font-bold ${acc.drawdown > 5 ? 'text-red-500' : 'text-blue-900'}`}>{mask(fmtPct(-acc.drawdown))}</div>
-                      <div className={`text-[10px] ${acc.drawdown > 0 ? 'text-red-400' : 'text-gray-400'}`}>{mask(fmtMoney(-ddAmount, cur))}</div>
+                    <div className={`border rounded-lg p-2 ${floating >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <div className="text-[10px] text-blue-500 font-medium">Floating</div>
+                      <div className={`text-base font-bold ${plColor(floating)}`}>{mask(fmtMoney(floating, cur))}</div>
+                      <div className={`text-[10px] ${plColor(floatingPct)}`}>{mask(fmtPct(floatingPct))}</div>
                     </div>
                   </div>
 
