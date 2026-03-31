@@ -110,6 +110,7 @@ void ExportAccountData()
    double dailyPL    = CalculateDailyPL();
    double monthlyPL  = CalculateMonthlyPL();
    double weeklyPL   = CalculateWeeklyPL();
+   double yearlyPL   = CalculateYearlyPL();
 
    double maxBalance = GetMaxHistoricalBalance();
    double drawdown   = maxBalance > 0 ? ((maxBalance - equity) / maxBalance) * 100.0 : 0;
@@ -138,6 +139,7 @@ void ExportAccountData()
    json += "  \"dailyPL\": " + DoubleToString(dailyPL, 2) + ",\n";
    json += "  \"weeklyPL\": " + DoubleToString(weeklyPL, 2) + ",\n";
    json += "  \"monthlyPL\": " + DoubleToString(monthlyPL, 2) + ",\n";
+   json += "  \"yearlyPL\": " + DoubleToString(yearlyPL, 2) + ",\n";
    json += "  \"drawdown\": " + DoubleToString(drawdown, 2) + ",\n";
    json += "  \"profitability\": " + DoubleToString(profitability, 2) + ",\n";
    json += "  \"initialDeposit\": " + DoubleToString(initialDeposit, 2) + ",\n";
@@ -301,6 +303,19 @@ double CalculateMonthlyPL()
    MqlDateTime dt;
    TimeCurrent(dt);
    dt.day = 1; dt.hour = 0; dt.min = 0; dt.sec = 0;
+   return CalculatePLFromDate(StructToTime(dt));
+}
+
+//+------------------------------------------------------------------+
+double CalculateYearlyPL()
+{
+   MqlDateTime dt;
+   TimeCurrent(dt);
+   dt.mon = 1;
+   dt.day = 1;
+   dt.hour = 0;
+   dt.min = 0;
+   dt.sec = 0;
    return CalculatePLFromDate(StructToTime(dt));
 }
 
