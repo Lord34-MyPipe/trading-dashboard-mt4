@@ -56,13 +56,20 @@ export default function Dashboard() {
             currency: a.currency || 'EUR',
             positions: a.positions || [],
             drawdown: a.drawdown || 0,
+            drawdownAmount: a.drawdownAmount || 0,
+            // Profits encaissés (trades fermés uniquement)
+            dailyProfit: a.dailyProfit || 0,
+            monthlyProfit: a.monthlyProfit || 0,
+            yearlyProfit: a.yearlyProfit || 0,
+            // Rendements en %
+            dailyReturnPct: a.dailyReturnPct || 0,
+            monthlyReturnPct: a.monthlyReturnPct || 0,
+            yearlyReturnPct: a.yearlyReturnPct || 0,
+            // Anciens champs (fallback)
             dailyPL: a.dailyPL || 0,
             monthlyPL: a.monthlyPL || 0,
-            yearlyPL: a.yearlyPL || 0,
-            profitability: a.profitability || 0,
-            totalProfit: a.totalProfit || 0,
-            initialDeposit: a.initialDeposit || a.balance || 0,
             marginLevel: a.marginLevel || 0,
+            initialDeposit: a.initialDeposit || a.balance || 0,
           }));
           setAccounts(normalized);
           setApiConnected(true);
@@ -86,6 +93,11 @@ export default function Dashboard() {
 
   const toggle = (id) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
 
+  // Helper: récupère le profit encaissé (nouveaux champs, avec fallback sur les anciens)
+  const getDaily = (a) => a.dailyProfit || 0;
+  const getMonthly = (a) => a.monthlyProfit || 0;
+  const getYearly = (a) => a.yearlyProfit || 0;
+
   // ============================================================
   // GLOBAL — tout converti en EUR
   // ============================================================
@@ -93,17 +105,30 @@ export default function Dashboard() {
     if (!accounts.length) return null;
     const totalBalance = accounts.reduce((s, a) => s + toEUR(a.balance, a.currency), 0);
     const totalEquity = accounts.reduce((s, a) => s + toEUR(a.equity, a.currency), 0);
-    const totalDailyPL = accounts.reduce((s, a) => s + toEUR(a.dailyPL, a.currency), 0);
-    const totalMonthlyPL = accounts.reduce((s, a) => s + toEUR(a.monthlyPL, a.currency), 0);
-    const totalYearlyPL = accounts.reduce((s, a) => s + toEUR(a.yearlyPL, a.currency), 0);
-    // DD global pondéré par equity
+
+    // Profits encaissés convertis en EUR
+    const totalDailyProfit = accounts.reduce((s, a) => s + toEUR(getDaily(a), a.currency), 0);
+    const totalMonthlyProfit = accounts.reduce((s, a) => s + toEUR(getMonthly(a), a.currency), 0);
+    const totalYearlyProfit = accounts.reduce((s, a) => s + toEUR(getYearly(a), a.currency), 0);
+
+    // DD global
     const totalDDeur = accounts.reduce((s, a) => {
+      if (a.drawdownAmount > 0) return s + toEUR(a.drawdownAmount, a.currency);
       const eqEUR = toEUR(a.equity, a.currency);
-      const ddEUR = eqEUR * (a.drawdown / 100) / (1 - a.drawdown / 100);
-      return s + ddEUR;
+      return s + (a.drawdown > 0 ? eqEUR * (a.drawdown / 100) / (1 - a.drawdown / 100) : 0);
     }, 0);
-    const globalDDpct = totalEquity > 0 ? (totalDDeur / (totalEquity + totalDDeur)) * 100 : 0;
-    return { totalBalance, totalEquity, totalDailyPL, totalMonthlyPL, totalYearlyPL, globalDDpct, totalDDeur };
+    const peakEquity = totalEquity + totalDDeur;
+    const globalDDpct = peakEquity > 0 ? (totalDDeur / peakEquity) * 100 : 0;
+
+    // Rendements globaux en %
+    const startDay = totalBalance - totalDailyProfit;
+    const startMonth = totalBalance - totalMonthlyProfit;
+    const startYear = totalBalance - totalYearlyProfit;
+    const dailyReturnPct = startDay > 0 ? (totalDailyProfit / startDay) * 100 : 0;
+    const monthlyReturnPct = startMonth > 0 ? (totalMonthlyProfit / startMonth) * 100 : 0;
+    const yearlyReturnPct = startYear > 0 ? (totalYearlyProfit / startYear) * 100 : 0;
+
+    return { totalBalance, totalEquity, totalDailyProfit, totalMonthlyProfit, totalYearlyProfit, globalDDpct, totalDDeur, dailyReturnPct, monthlyReturnPct, yearlyReturnPct };
   }, [accounts]);
 
   const mask = (v) => showBal ? v : '•••••';
@@ -159,23 +184,26 @@ export default function Dashboard() {
               <div className={`bg-white border rounded-xl p-3 ${global.globalDDpct > 5 ? 'border-red-300' : 'border-blue-200'}`}>
                 <div className="text-xs text-blue-500 font-medium mb-1">Drawdown</div>
                 <div className={`text-xl font-bold ${global.globalDDpct > 5 ? 'text-red-500' : 'text-blue-900'}`}>{mask(fmtPct(-global.globalDDpct))}</div>
-                <div className={`text-xs ${global.globalDDpct > 5 ? 'text-red-400' : 'text-gray-400'}`}>{mask(fmtMoney(-global.totalDDeur))}</div>
+                <div className={`text-xs mt-0.5 ${global.totalDDeur > 0 ? 'text-red-400' : 'text-gray-400'}`}>{mask(fmtMoney(-global.totalDDeur))}</div>
               </div>
             </div>
 
-            {/* P&L Jour / Mois / Année */}
+            {/* Profits encaissés Jour / Mois / Année */}
             <div className="grid grid-cols-3 gap-3">
-              <div className={`border rounded-xl p-3 ${plBg(global.totalDailyPL)}`}>
-                <div className="text-xs text-gray-500 font-medium mb-1">P&L Jour</div>
-                <div className={`text-lg font-bold ${plColor(global.totalDailyPL)}`}>{mask(fmtMoney(global.totalDailyPL))}</div>
+              <div className={`border rounded-xl p-3 ${plBg(global.totalDailyProfit)}`}>
+                <div className="text-xs text-gray-500 font-medium mb-1">Profit Jour</div>
+                <div className={`text-lg font-bold ${plColor(global.totalDailyProfit)}`}>{mask(fmtMoney(global.totalDailyProfit))}</div>
+                <div className={`text-xs mt-0.5 ${plColor(global.dailyReturnPct)}`}>{mask(fmtPct(global.dailyReturnPct))}</div>
               </div>
-              <div className={`border rounded-xl p-3 ${plBg(global.totalMonthlyPL)}`}>
-                <div className="text-xs text-gray-500 font-medium mb-1">P&L Mois</div>
-                <div className={`text-lg font-bold ${plColor(global.totalMonthlyPL)}`}>{mask(fmtMoney(global.totalMonthlyPL))}</div>
+              <div className={`border rounded-xl p-3 ${plBg(global.totalMonthlyProfit)}`}>
+                <div className="text-xs text-gray-500 font-medium mb-1">Profit Mois</div>
+                <div className={`text-lg font-bold ${plColor(global.totalMonthlyProfit)}`}>{mask(fmtMoney(global.totalMonthlyProfit))}</div>
+                <div className={`text-xs mt-0.5 ${plColor(global.monthlyReturnPct)}`}>{mask(fmtPct(global.monthlyReturnPct))}</div>
               </div>
-              <div className={`border rounded-xl p-3 ${plBg(global.totalYearlyPL)}`}>
-                <div className="text-xs text-gray-500 font-medium mb-1">P&L Année</div>
-                <div className={`text-lg font-bold ${plColor(global.totalYearlyPL)}`}>{mask(fmtMoney(global.totalYearlyPL))}</div>
+              <div className={`border rounded-xl p-3 ${plBg(global.totalYearlyProfit)}`}>
+                <div className="text-xs text-gray-500 font-medium mb-1">Profit Année</div>
+                <div className={`text-lg font-bold ${plColor(global.totalYearlyProfit)}`}>{mask(fmtMoney(global.totalYearlyProfit))}</div>
+                <div className={`text-xs mt-0.5 ${plColor(global.yearlyReturnPct)}`}>{mask(fmtPct(global.yearlyReturnPct))}</div>
               </div>
             </div>
           </section>
@@ -188,13 +216,19 @@ export default function Dashboard() {
           <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Détail par compte</h2>
           {accounts.map((acc) => {
             const cur = acc.currency || 'EUR';
-            const ddEUR = toEUR(acc.equity, cur) * (acc.drawdown / 100) / Math.max(1 - acc.drawdown / 100, 0.001);
+            const daily = getDaily(acc);
+            const monthly = getMonthly(acc);
+            const yearly = getYearly(acc);
+            // DD en devise native
+            const ddAmount = acc.drawdownAmount > 0
+              ? acc.drawdownAmount
+              : acc.equity * (acc.drawdown / 100) / Math.max(1 - acc.drawdown / 100, 0.001);
             const isOpen = expanded[acc.id];
 
             return (
               <div key={acc.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <button className="w-full p-4 text-left active:bg-gray-50 transition-colors" onClick={() => toggle(acc.id)}>
-                  {/* Header ligne */}
+                  {/* Header */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${cur === 'USD' ? 'bg-orange-500' : 'bg-blue-500'}`} />
@@ -212,7 +246,7 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Stats principales */}
+                  {/* Balance + DD */}
                   <div className="grid grid-cols-2 gap-2 mb-2">
                     <div className="bg-blue-50 border border-blue-100 rounded-lg p-2">
                       <div className="text-[10px] text-blue-500 font-medium">Balance</div>
@@ -221,22 +255,26 @@ export default function Dashboard() {
                     <div className={`border rounded-lg p-2 ${acc.drawdown > 5 ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-100'}`}>
                       <div className="text-[10px] text-blue-500 font-medium">Drawdown</div>
                       <div className={`text-base font-bold ${acc.drawdown > 5 ? 'text-red-500' : 'text-blue-900'}`}>{mask(fmtPct(-acc.drawdown))}</div>
-                      <div className="text-[10px] text-gray-400">{mask(fmtMoney(-ddEUR))}</div>
+                      <div className={`text-[10px] ${acc.drawdown > 0 ? 'text-red-400' : 'text-gray-400'}`}>{mask(fmtMoney(-ddAmount, cur))}</div>
                     </div>
                   </div>
 
+                  {/* Profits encaissés */}
                   <div className="grid grid-cols-3 gap-2">
-                    <div className={`border rounded-lg p-2 ${plBg(acc.dailyPL)}`}>
-                      <div className="text-[10px] text-gray-500 font-medium">P&L Jour</div>
-                      <div className={`text-sm font-bold ${plColor(acc.dailyPL)}`}>{mask(fmtMoney(acc.dailyPL, cur))}</div>
+                    <div className={`border rounded-lg p-2 ${plBg(daily)}`}>
+                      <div className="text-[10px] text-gray-500 font-medium">Profit Jour</div>
+                      <div className={`text-sm font-bold ${plColor(daily)}`}>{mask(fmtMoney(daily, cur))}</div>
+                      <div className={`text-[10px] ${plColor(acc.dailyReturnPct)}`}>{mask(fmtPct(acc.dailyReturnPct))}</div>
                     </div>
-                    <div className={`border rounded-lg p-2 ${plBg(acc.monthlyPL)}`}>
-                      <div className="text-[10px] text-gray-500 font-medium">P&L Mois</div>
-                      <div className={`text-sm font-bold ${plColor(acc.monthlyPL)}`}>{mask(fmtMoney(acc.monthlyPL, cur))}</div>
+                    <div className={`border rounded-lg p-2 ${plBg(monthly)}`}>
+                      <div className="text-[10px] text-gray-500 font-medium">Profit Mois</div>
+                      <div className={`text-sm font-bold ${plColor(monthly)}`}>{mask(fmtMoney(monthly, cur))}</div>
+                      <div className={`text-[10px] ${plColor(acc.monthlyReturnPct)}`}>{mask(fmtPct(acc.monthlyReturnPct))}</div>
                     </div>
-                    <div className={`border rounded-lg p-2 ${plBg(acc.yearlyPL)}`}>
-                      <div className="text-[10px] text-gray-500 font-medium">P&L Année</div>
-                      <div className={`text-sm font-bold ${plColor(acc.yearlyPL)}`}>{mask(fmtMoney(acc.yearlyPL, cur))}</div>
+                    <div className={`border rounded-lg p-2 ${plBg(yearly)}`}>
+                      <div className="text-[10px] text-gray-500 font-medium">Profit Année</div>
+                      <div className={`text-sm font-bold ${plColor(yearly)}`}>{mask(fmtMoney(yearly, cur))}</div>
+                      <div className={`text-[10px] ${plColor(acc.yearlyReturnPct)}`}>{mask(fmtPct(acc.yearlyReturnPct))}</div>
                     </div>
                   </div>
                 </button>
@@ -270,7 +308,7 @@ export default function Dashboard() {
                                 <td className="py-1.5 px-1 text-right text-gray-600">{p.lots}</td>
                                 <td className="py-1.5 px-1 text-right text-gray-400 font-mono text-[10px]">{p.openPrice}</td>
                                 <td className="py-1.5 px-1 text-right text-gray-600 font-mono text-[10px]">{p.currentPrice}</td>
-                                <td className={`py-1.5 pl-1 text-right font-bold ${(p.profit || p.netProfit || 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                <td className={`py-1.5 pl-1 text-right font-bold ${(p.netProfit || p.profit || 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                   {fmtMoney(p.netProfit || p.profit || 0, cur)}
                                 </td>
                               </tr>
