@@ -71,6 +71,7 @@ export default function Dashboard() {
             marginLevel: a.marginLevel || 0,
             initialDeposit: a.initialDeposit || a.balance || 0,
           }));
+          normalized.sort((a, b) => b.balance - a.balance);
           setAccounts(normalized);
           setApiConnected(true);
           setLastRefresh(new Date());
