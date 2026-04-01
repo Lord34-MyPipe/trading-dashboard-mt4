@@ -1,20 +1,16 @@
 "use client";
-// ─────────────────────────────────────────────
-// FICHIER : app/widget/page.jsx  (Next.js App Router)
-// ou :      pages/widget.jsx     (Next.js Pages Router)
-//
-// Adapte l'URL de l'API si besoin (voir TODO ci-dessous)
-// ─────────────────────────────────────────────
 
 import { useEffect, useState } from "react";
 
-const fmt = (n, currency = "€") =>
-  `${n >= 0 ? "+" : ""}${Number(n).toLocaleString("fr-FR", {
+const fmtEur = (n, currency = "€") => {
+  const abs = Math.abs(Number(n)).toLocaleString("fr-FR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} ${currency}`;
+  });
+  return `${Number(n) >= 0 ? "+" : "-"}${abs} ${currency}`;
+};
 
-const fmtPct = (n) => `${n >= 0 ? "+" : ""}${Number(n).toFixed(2)}%`;
+const fmtPct = (n) => `${Number(n) >= 0 ? "+" : ""}${Number(n).toFixed(2)}%`;
 
 export default function Widget() {
   const [data, setData] = useState(null);
@@ -23,7 +19,6 @@ export default function Widget() {
 
   const fetchData = async () => {
     try {
-      // TODO : remplace par ton vrai endpoint API
       const res = await fetch("/api/accounts");
       if (!res.ok) throw new Error("fetch failed");
       const json = await res.json();
@@ -37,40 +32,34 @@ export default function Widget() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30_000); // refresh 30s
+    const interval = setInterval(fetchData, 30_000);
     return () => clearInterval(interval);
   }, []);
 
-  // ── calculs globaux depuis les comptes ──────
-  const global = data
+  const global = data?.accounts
     ? data.accounts.reduce(
         (acc, a) => ({
           balance: acc.balance + (a.balance || 0),
-          floating: acc.floating + (a.floating || 0),
+          equity: acc.equity + (a.equity || 0),
+          floatingPL: acc.floatingPL + (a.floatingPL || 0),
           profitDay: acc.profitDay + (a.profitDay || 0),
           profitMonth: acc.profitMonth + (a.profitMonth || 0),
           profitYear: acc.profitYear + (a.profitYear || 0),
         }),
-        { balance: 0, floating: 0, profitDay: 0, profitMonth: 0, profitYear: 0 }
+        { balance: 0, equity: 0, floatingPL: 0, profitDay: 0, profitMonth: 0, profitYear: 0 }
       )
     : null;
 
-  const floatingPct = global
-    ? ((global.floating / global.balance) * 100).toFixed(2)
+  const floatingPct = global?.balance
+    ? (global.floatingPL / global.balance) * 100
     : 0;
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-          background: transparent;
-          font-family: 'IBM Plex Sans', sans-serif;
-          -webkit-font-smoothing: antialiased;
-        }
+        body { background: transparent; font-family: 'IBM Plex Sans', sans-serif; -webkit-font-smoothing: antialiased; }
 
         .widget {
           width: 320px;
@@ -82,141 +71,82 @@ export default function Widget() {
           color: #e2e8f0;
           box-shadow: 0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
         }
-
         .header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 14px;
+          display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
         }
-
         .title {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: rgba(255,255,255,0.4);
+          font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+          text-transform: uppercase; color: rgba(255,255,255,0.4);
         }
-
         .live-dot {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 10px;
-          color: rgba(255,255,255,0.35);
-          font-family: 'IBM Plex Mono', monospace;
+          display: flex; align-items: center; gap: 5px;
+          font-size: 10px; color: rgba(255,255,255,0.35); font-family: 'IBM Plex Mono', monospace;
         }
-
         .dot {
-          width: 6px; height: 6px;
-          border-radius: 50%;
-          background: #22c55e;
-          box-shadow: 0 0 6px #22c55e;
-          animation: pulse 2s infinite;
+          width: 6px; height: 6px; border-radius: 50%;
+          background: #22c55e; box-shadow: 0 0 6px #22c55e; animation: pulse 2s infinite;
         }
-
         .dot.error { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-
-        .balance-row {
-          display: flex;
-          gap: 10px;
-          margin-bottom: 10px;
-        }
+        .balance-row { display: flex; gap: 10px; margin-bottom: 10px; }
 
         .card {
           flex: 1;
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 10px;
-          padding: 10px 12px;
+          border-radius: 10px; padding: 10px 12px;
         }
-
         .card-label {
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: rgba(255,255,255,0.3);
-          margin-bottom: 4px;
+          font-size: 9px; font-weight: 600; letter-spacing: 0.1em;
+          text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 4px;
         }
-
         .card-value {
           font-family: 'IBM Plex Mono', monospace;
-          font-size: 17px;
-          font-weight: 600;
-          color: #f1f5f9;
-          line-height: 1;
+          font-size: 15px; font-weight: 600; color: #f1f5f9;
+          line-height: 1.2; white-space: nowrap;
         }
-
         .card-sub {
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 10px;
-          margin-top: 3px;
+          font-family: 'IBM Plex Mono', monospace; font-size: 10px; margin-top: 3px;
         }
+        .neg { color: #f87171; }
+        .pos { color: #4ade80; }
+        .neutral { color: #94a3b8; }
 
-        .card.floating .card-value { color: #f87171; }
-        .card.floating .card-sub { color: #f87171; opacity: 0.7; }
-        .card.floating.positive .card-value { color: #4ade80; }
-        .card.floating.positive .card-sub { color: #4ade80; opacity: 0.7; }
-
-        .profits {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 8px;
-        }
-
+        .profits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .profit-card {
           background: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 8px;
-          padding: 8px 10px;
+          border-radius: 8px; padding: 8px 10px;
         }
-
         .profit-label {
-          font-size: 8px;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: rgba(255,255,255,0.25);
-          margin-bottom: 4px;
+          font-size: 8px; font-weight: 600; letter-spacing: 0.1em;
+          text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 4px;
         }
-
         .profit-value {
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 12px;
-          font-weight: 600;
-          color: #94a3b8;
+          font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
         }
-
-        .profit-value.pos { color: #4ade80; }
-        .profit-value.neg { color: #f87171; }
-
         .profit-pct {
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 9px;
-          margin-top: 2px;
+          font-family: 'IBM Plex Mono', monospace; font-size: 9px; margin-top: 2px;
           color: rgba(255,255,255,0.2);
         }
-
-        .profit-pct.pos { color: rgba(74, 222, 128, 0.5); }
-        .profit-pct.neg { color: rgba(248, 113, 113, 0.5); }
-
         .skeleton {
           background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          border-radius: 4px;
-          height: 20px;
+          background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; height: 20px;
         }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
+        .equity-bar { margin-bottom: 10px; }
+        .equity-label {
+          display: flex; justify-content: space-between;
+          font-size: 9px; color: rgba(255,255,255,0.25); margin-bottom: 4px;
+          font-family: 'IBM Plex Mono', monospace;
+        }
+        .bar-track {
+          height: 3px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden;
+        }
+        .bar-fill {
+          height: 100%; border-radius: 2px; transition: width 0.5s ease;
         }
       `}</style>
 
@@ -244,29 +174,55 @@ export default function Widget() {
         ) : (
           <>
             <div className="balance-row">
+              {/* Balance */}
               <div className="card">
                 <div className="card-label">Balance Totale</div>
                 <div className="card-value">
                   {Number(global.balance).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €
                 </div>
               </div>
-              <div className={`card floating ${global.floating >= 0 ? "positive" : ""}`}>
-                <div className="card-label">Floating</div>
-                <div className="card-value">{fmt(global.floating)}</div>
-                <div className="card-sub">{fmtPct(floatingPct)}</div>
+              {/* Floating P&L */}
+              <div className="card">
+                <div className="card-label">Floating P&L</div>
+                <div className={`card-value ${global.floatingPL >= 0 ? "pos" : "neg"}`}>
+                  {fmtEur(global.floatingPL)}
+                </div>
+                <div className={`card-sub ${floatingPct >= 0 ? "pos" : "neg"}`}>
+                  {fmtPct(floatingPct)}
+                </div>
               </div>
             </div>
 
+            {/* Barre Equity vs Balance */}
+            <div className="equity-bar">
+              <div className="equity-label">
+                <span>Equity</span>
+                <span style={{ color: global.equity >= global.balance ? "#4ade80" : "#f87171" }}>
+                  {Number(global.equity).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €
+                </span>
+              </div>
+              <div className="bar-track">
+                <div
+                  className="bar-fill"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, (global.equity / global.balance) * 100))}%`,
+                    background: global.equity >= global.balance ? "#4ade80" : "#f87171",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Profits */}
             <div className="profits">
               {[
-                { label: "Jour", val: global.profitDay, pct: global.balance ? (global.profitDay / global.balance) * 100 : 0 },
-                { label: "Mois", val: global.profitMonth, pct: global.balance ? (global.profitMonth / global.balance) * 100 : 0 },
-                { label: "Année", val: global.profitYear, pct: global.balance ? (global.profitYear / global.balance) * 100 : 0 },
+                { label: "Jour",  val: global.profitDay,   pct: global.balance ? (global.profitDay / global.balance) * 100 : 0 },
+                { label: "Mois",  val: global.profitMonth, pct: global.balance ? (global.profitMonth / global.balance) * 100 : 0 },
+                { label: "Année", val: global.profitYear,  pct: global.balance ? (global.profitYear / global.balance) * 100 : 0 },
               ].map(({ label, val, pct }) => (
                 <div key={label} className="profit-card">
                   <div className="profit-label">{label}</div>
-                  <div className={`profit-value ${val > 0 ? "pos" : val < 0 ? "neg" : ""}`}>
-                    {val === 0 ? "0,00 €" : fmt(val)}
+                  <div className={`profit-value ${val > 0 ? "pos" : val < 0 ? "neg" : "neutral"}`}>
+                    {val === 0 ? "0,00 €" : fmtEur(val)}
                   </div>
                   <div className={`profit-pct ${pct > 0 ? "pos" : pct < 0 ? "neg" : ""}`}>
                     {fmtPct(pct)}
