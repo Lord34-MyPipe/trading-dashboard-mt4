@@ -244,6 +244,8 @@ export default function Dashboard() {
                               <th className="text-right py-1.5 px-1">Lots</th>
                               <th className="text-right py-1.5 px-1">Open</th>
                               <th className="text-right py-1.5 px-1">Actuel</th>
+                      <th className="text-right py-1.5 px-1">TP</th>
+
                               <th className="text-right py-1.5 pl-1">Profit</th>
                             </tr>
                           </thead>
@@ -257,6 +259,10 @@ export default function Dashboard() {
                                 <td className="py-1.5 px-1 text-right text-gray-600">{p.lots}</td>
                                 <td className="py-1.5 px-1 text-right text-gray-400 font-mono text-[10px]">{p.openPrice}</td>
                                 <td className="py-1.5 px-1 text-right text-gray-600 font-mono text-[10px]">{p.currentPrice}</td>
+                  <td className="py-1.5 px-1 text-right text-blue-500 font-mono text-[10px]">
+  {p.tp > 0 ? p.tp : '—'}
+</td>
+
                                 <td className={`py-1.5 pl-1 text-right font-bold ${(p.netProfit || p.profit || 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                   {fmtMoney(p.netProfit || p.profit || 0, cur)}
                                 </td>
