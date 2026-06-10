@@ -121,6 +121,25 @@ InpTradeFriday        = false
 Augmente `InpFixedStartLot` (0.05, 0.10…) et/ou `InpMaxLevels`, **mais laisse `InpMaxBasketLossPct`
 identique**. Tu trades plus de lots, et ta perte max reste plafonnée à 3 %. C'est le bon réglage.
 
+### 🥇 Préréglage GOLD (XAUUSD) — `presets/XAUUSD_10k_prudent.set`
+
+Le gold demande des réglages **différents** de l'EURUSD :
+
+- **Cotation 2 décimales** chez Roboforex : dans cet EA, 1 « pip » gold = **0,01 $** (= 1 point).
+  → `InpGridStepPips = 300` signifie un palier tous les **3,00 $** de l'once.
+- **Volatilité** : ATR M15 ≈ 3–5 $. L'espacement ATR (`InpDynamicStep=true`, facteur 1.2) adapte
+  automatiquement la grille — c'est lui qui pilote sur gold, le step fixe sert de plancher.
+- **Spread** : sur ECN/Prime ≈ 10–25 points (0,10–0,25 $). `InpMaxSpreadPoints = 35` filtre les
+  moments où ça s'élargit (nuit, news). Évite la session asiatique : `InpStartHour=9`, `InpEndHour=21`.
+- **Valeur du point** : 0,01 lot gold = 1 once → un mouvement de 1 $ = ±1 $ (~0,92 €). Avec
+  `InpFixedStartLot=0.01`, multiplicateur 1.30 et 6 paliers, le volume cumulé max ≈ **0,13 lot** et le
+  pire cas reste **sous le STOP DUR de 300 €**. Ne monte pas le lot initial avant validation en démo.
+- **Slippage** : gold bouge vite → `InpSlippagePoints=50`.
+- **Commission** : vérifie la tienne (métaux ECN ≈ 13–18 €/lot A/R) et règle `InpCommissionPerLot`.
+
+Chargement : fenêtre de l'EA → onglet « Paramètres d'entrée » → **Charger** → `XAUUSD_10k_prudent.set`.
+Graphique recommandé : **XAUUSD M15**.
+
 ### Pour le plus sûr possible
 - `InpLotMultiplier = 1.0` (pas de martingale, pur averaging).
 - `InpMaxBasketLossPct = 2.0`.

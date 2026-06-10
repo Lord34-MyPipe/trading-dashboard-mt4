@@ -1,0 +1,51 @@
+; ==================================================================
+; CompensationGrid_EA - Preset XAUUSD (GOLD) - Capital 10 000 EUR
+; Profil PRUDENT - Roboforex ECN/Prime - MT5
+; A charger dans la fenetre de l'EA : bouton "Charger" -> ce fichier
+; ==================================================================
+; IMPORTANT (gold) : XAUUSD est cote en 2 decimales chez Roboforex.
+; Dans cet EA, 1 "pip" gold = 0.01 $ (= 1 point).
+; Donc InpGridStepPips=300 = un palier tous les 3.00 $ de l'once.
+; ==================================================================
+InpMagic=250611
+InpComment=CompGrid_XAU
+; --- Signal ---
+InpEntryMode=1
+InpMAPeriod=50
+InpMATimeframe=15
+; --- Lots ---
+InpFixedStartLot=0.01
+InpRiskPercentStart=0.30
+InpLotMultiplier=1.30
+InpLotAdd=0.0
+InpMaxSingleLot=0.20
+InpMaxTotalLot=0.50
+; --- Grille ---
+InpMaxLevels=6
+InpGridStepPips=300
+InpDynamicStep=true
+InpATRPeriod=14
+InpATRStepFactor=1.2
+; --- Sorties ---
+InpProfitTargetMoney=25.0
+InpUseBEExit=true
+InpBreakEvenMoney=2.0
+InpTrailBasket=true
+InpTrailStartMoney=15.0
+InpTrailGiveBackMoney=8.0
+; --- SECURITE ---
+InpMaxBasketLossPct=3.0
+InpMaxBasketLossMoney=0.0
+InpDailyLossLimitPct=5.0
+InpMinMarginLevel=300.0
+; --- Filtres ---
+InpMaxSpreadPoints=35
+InpCommissionPerLot=15.0
+InpUseTradingHours=true
+InpStartHour=9
+InpEndHour=21
+InpTradeFriday=false
+InpSlippagePoints=50
+; --- Affichage ---
+InpShowPanel=true
+InpDebug=false
